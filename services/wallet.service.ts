@@ -1,44 +1,41 @@
-import {InfuraProvider} from '@ethersproject/providers';
-import {Contract, ethers, HDNodeWallet, InterfaceAbi} from "ethers";
-import ProfileAbi from "../profile.abi.json";
+import {ethers, HDNodeWallet} from "ethers";
 import Api from "./api.service";
 import {ProfileService} from './profile.service';
 
 export interface StudentProfile {
+    id: number
     name: string
-    dayOfBirth: number
+    dayOfBirth: string
     email: string,
     phoneNumber: string,
-    avatar: string,
+    selfieImage: string,
     idFrontImage: string,
     idBackImage: string
 }
 
 class Wallet {
-    wallet: HDNodeWallet
-    provider: InfuraProvider
+    wallet: any
     api: Api
-    contract: Contract
 
     constructor(mnemonic: string, apiEndpoint: string, ) {
-        this.provider = new InfuraProvider("sepolia", 'bf8cd18abd9e4daf8b0b552cdb8af09b');
         this.wallet = ethers.Wallet.fromPhrase(mnemonic)
         this.api = new Api(apiEndpoint)
-        this.contract = new Contract("0x46ECCE43b97eD208183E1619Ac90F7B72fFc2a2D", ProfileAbi.abi as InterfaceAbi)
     }
 
     getAddress = (): string => {
         return this.wallet.address
     }
-
     submitProfile = async (studentProfile: StudentProfile): Promise<any> => {
-        const leave = [studentProfile.name, String(studentProfile.dayOfBirth), studentProfile.email, studentProfile.phoneNumber, studentProfile.avatar, studentProfile.idBackImage, studentProfile.idBackImage]
-        const root = ProfileService.createTree(leave).root().hash.toString("hex");
+        const leave = [studentProfile.name, studentProfile.dayOfBirth, studentProfile.email, studentProfile.phoneNumber, studentProfile.selfieImage, studentProfile.idBackImage, studentProfile.idBackImage]
+        const root = "0x" + ProfileService.createTree(leave).root().hash.toString("hex");
 
-        const result = this.api.post("/student/submit", {
-            ...studentProfile,
+        const result = await this.api.post("/students/submit", {
+            id: studentProfile.id,
+            address: this.getAddress(),
             day_of_birth: studentProfile.dayOfBirth,
+            email: studentProfile.email,
             phone_number: studentProfile.phoneNumber,
+            selfie_image: studentProfile.selfieImage,
             id_front_image: studentProfile.idFrontImage,
             id_back_image: studentProfile.idBackImage,
             root,
@@ -47,11 +44,73 @@ class Wallet {
         return result
     }
 
-    updateProfile = async () => {
+    updateProfile = async (studentProfile: StudentProfile) => {
+        const leave = [studentProfile.name, studentProfile.dayOfBirth, studentProfile.email, studentProfile.phoneNumber, studentProfile.selfieImage, studentProfile.idBackImage, studentProfile.idBackImage]
+        const root = "0x" + ProfileService.createTree(leave).root().hash.toString("hex");
+
+        console.log(
+            {
+                name: "Profile",
+                version: "0.0.1",
+                chainId: 0xaa36a7,
+                verifyingContract: "0x46ECCE43b97eD208183E1619Ac90F7B72fFc2a2D"
+            }, 
+            {
+                Update: [
+                    { name: "tokenId", type: "uint256" },
+                    { name: "merkleRoot", type: "bytes32" },
+                ]
+            },
+            {
+                Update: {
+                    tokenId: studentProfile.id.toString(),
+                    merkleRoot: ethers.hexlify(root)
+                }
+            }
+        )
+
+        const signature = await this.wallet.signMessage(
+            {
+                name: "Profile",
+                version: "0.0.1",
+                chainId: 0xaa36a7,
+                verifyingContract: "0x46ECCE43b97eD208183E1619Ac90F7B72fFc2a2D"
+            }, 
+            {
+                Update: [
+                    { name: "tokenId", type: "uint256" },
+                    { name: "merkleRoot", type: "bytes32" },
+                ]
+            },
+            {
+                Update: {
+                    tokenId: studentProfile.id.toString(),
+                    merkleRoot: ethers.hexlify(root)
+                }
+            }
+        )
+
+        console.log(signature)
+
+        const result = await this.api.post("/students/update", {
+            id: studentProfile.id,
+            address: this.getAddress(),
+            day_of_birth: studentProfile.dayOfBirth,
+            email: studentProfile.email,
+            phone_number: studentProfile.phoneNumber,
+            selfie_image: studentProfile.selfieImage,
+            id_front_image: studentProfile.idFrontImage,
+            id_back_image: studentProfile.idBackImage,
+            root,
+            signature
+        })
+
+        return result
     }
 
-    getProfile = async (studentId: number) => {
-        const result = this.api.post('/student')
+    getProfile = async (studentId: number): Promise<any> => {
+        const result: any = await this.api.get(`/students/student?id=${studentId}`)
+        return result.message
     }
 }
 
