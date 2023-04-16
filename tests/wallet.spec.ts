@@ -12,7 +12,6 @@ describe("Wallet", () => {
         api = new Api("http://localhost:8000")
     })
 
-    /*
     // call from admin web
     it("Create student", async () => {
         //create student
@@ -52,7 +51,6 @@ describe("Wallet", () => {
 
         console.log(result)
     })
-    */
 
     it("Update infomation", async () => {
         const studentInfo = await wallet.getProfile(studentNumber)
